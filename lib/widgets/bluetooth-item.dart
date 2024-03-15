@@ -83,19 +83,21 @@ class _BluetoothItemState extends State<BluetoothItem> {
         stateText = 'Connecting';
       });
 
+      await bluetoothData.device.connect();
+      print('2 ============== > ${bluetoothData.device.isConnected}');
+
       FlutterBluePlus.connectedDevices.add(bluetoothData.device);
       print('1 ============== > ${bluetoothData.device.isConnected}');
 
-      await bluetoothData.device.connect();
-      print('2 ============== > ${bluetoothData.device.isConnected}');
+      List<BluetoothService> Listservices = bluetoothData.device.servicesList;
+
+      print('Listservices :::===> $Listservices');
 
       setState(() {
         /* 상태 표시를 Connecting으로 변경 */
         stateText = 'Connected';
       });
     }
-
-    setState(() {});
   }
 
   /* 연결 해제 */
@@ -113,6 +115,11 @@ class _BluetoothItemState extends State<BluetoothItem> {
     return SizedBox(
       child: Row(
         children: [
+          TextButton(
+              onPressed: () {
+                print(bluetoothData.device.servicesList);
+              },
+              child: const Text('get service list')),
           Text(stateText),
           Column(
             children: [
