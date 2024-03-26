@@ -3,13 +3,11 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
-// import 'package:flutter_blue/flutter_blue.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 class BluetoothItem extends StatefulWidget {
   final ScanResult bluetoothData;
 
-  // const BluetoothItem({super.key});
   const BluetoothItem.fromMap(ScanResult data, {super.key})
       : bluetoothData = data;
 
@@ -18,129 +16,86 @@ class BluetoothItem extends StatefulWidget {
 }
 
 class _BluetoothItemState extends State<BluetoothItem> {
+  // 블루투스 디바이스 인스턴스
   final ScanResult bluetoothData;
 
   // 연결 상태 표시 문자열
-  String stateText = '';
+  String connectionState = '';
 
-  // 현재 연결 상태 저장용
-  BluetoothConnectionState deviceState = BluetoothConnectionState.disconnected;
-
-  // 연결 상태 리스너 핸들 화면 종료시 리스너 해제를 위함
-  StreamSubscription<BluetoothConnectionState>? _stateListener;
+  bool isConnected = false;
 
   _BluetoothItemState(bluetoothData) : bluetoothData = bluetoothData;
 
   @override
   initState() {
     super.initState();
-    // 상태 연결 리스너 등록
-  }
-
-  @override
-  void setState(VoidCallback fn) {
-    if (mounted) {
-      // 화면이 mounted 되었을때만 업데이트 되게 함
-      super.setState(fn);
+    if (bluetoothData.device.isConnected) {
+      setConnectionState('Connected');
+      isConnected = true;
     }
   }
 
-  /* 연결 상태 갱신 */
-  setBleConnectionState(BluetoothConnectionState event) {
-    switch (event) {
-      case BluetoothConnectionState.disconnected:
-        stateText = 'Disconnected';
-        // 버튼 상태 변경
-        break;
-      case BluetoothConnectionState.disconnecting:
-        stateText = 'Disconnecting';
-        break;
-      case BluetoothConnectionState.connected:
-        stateText = 'Connected';
-        // 버튼 상태 변경
-        break;
-      case BluetoothConnectionState.connecting:
-        stateText = 'Connecting';
-        break;
-    }
-    //이전 상태 이벤트 저장
-    deviceState = event;
-    setState(() {});
+  setConnectionState(String txt) {
+    setState(() {
+      connectionState = txt;
+    });
   }
 
   /* 연결 시작 */
   Future connect() async {
-    /* 
-      타임아웃을 10초(10000ms)로 설정 및 autoconnect 해제
-       참고로 autoconnect가 true되어있으면 연결이 지연되는 경우가 있음.
-     */
-    if (bluetoothData.device.isConnected) {
-      FlutterBluePlus.connectedDevices.remove(bluetoothData.device);
-      await bluetoothData.device.disconnect();
-    } else {
-      setState(() {
-        /* 상태 표시를 Connecting으로 변경 */
-        stateText = 'Connecting';
-      });
-
-      await bluetoothData.device.connect();
-      print('2 ============== > ${bluetoothData.device.isConnected}');
-
-      FlutterBluePlus.connectedDevices.add(bluetoothData.device);
-      print('1 ============== > ${bluetoothData.device.isConnected}');
-
-      List<BluetoothService> Listservices = bluetoothData.device.servicesList;
-
-      print('Listservices :::===> $Listservices');
-
-      setState(() {
-        /* 상태 표시를 Connecting으로 변경 */
-        stateText = 'Connected';
-      });
-    }
-  }
-
-  /* 연결 해제 */
-  void disconnect() {
     try {
-      setState(() {
-        stateText = 'Disconnecting';
-      });
-      bluetoothData.device.disconnect();
-    } catch (e) {}
+      if (bluetoothData.device.isConnected) {
+        setConnectionState('Disconnecting...');
+        await bluetoothData.device.disconnect();
+        setConnectionState('Disconnected');
+        FlutterBluePlus.connectedDevices.remove(bluetoothData.device);
+        isConnected = false;
+      } else {
+        setConnectionState('Connecting...');
+        await bluetoothData.device.connect();
+        setConnectionState('Connected');
+        FlutterBluePlus.connectedDevices.add(bluetoothData.device);
+        isConnected = true;
+      }
+    } catch (e) {
+      print(e);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    return Container(
+      decoration:
+          const BoxDecoration(color: Color.fromRGBO(051, 102, 255, 0.1)),
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.fromLTRB(50, 10, 50, 10),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          TextButton(
-              onPressed: () {
-                print(bluetoothData.device.servicesList);
-              },
-              child: const Text('get service list')),
-          Text(stateText),
-          Column(
+          Row(
             children: [
-              Text(bluetoothData.device.advName),
+              Text(connectionState,
+                  style: TextStyle(
+                      color: isConnected ? Colors.blue : Colors.red,
+                      fontWeight: FontWeight.w600)),
+              const SizedBox(width: 20),
+              Text(
+                bluetoothData.device.advName,
+                style: const TextStyle(fontWeight: FontWeight.w500),
+              ),
             ],
           ),
           IconButton(
-            style: bluetoothData.device.isConnected
-                ? const ButtonStyle(
-                    backgroundColor: MaterialStatePropertyAll(Colors.red),
-                    iconColor: MaterialStatePropertyAll(Colors.white))
-                : const ButtonStyle(
-                    backgroundColor: MaterialStatePropertyAll(Colors.blue),
-                    iconColor: MaterialStatePropertyAll(Colors.white)),
-            onPressed: () async {
-              await connect();
-            },
-            icon: bluetoothData.device.isConnected
-                ? const Icon(Icons.bluetooth_disabled)
-                : const Icon(Icons.bluetooth),
-          ),
+              style: ButtonStyle(
+                  backgroundColor: isConnected
+                      ? const MaterialStatePropertyAll(Colors.red)
+                      : const MaterialStatePropertyAll(Colors.blue),
+                  iconColor: const MaterialStatePropertyAll(Colors.white)),
+              onPressed: () async {
+                await connect();
+              },
+              icon: Icon(
+                  isConnected ? Icons.bluetooth_disabled : Icons.bluetooth)),
         ],
       ),
     );

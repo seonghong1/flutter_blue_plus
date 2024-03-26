@@ -1,8 +1,8 @@
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
-// import 'package:flutter_blue/flutter_blue.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_blue_plus_test/widgets/bluetooth-item.dart';
 
@@ -19,11 +19,16 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   List<ScanResult> bluetoothList = [];
+  bool bluetoothOffInIos = false;
 
   void startScan() {
+    bluetoothOffInIos = false;
+    print('call');
+
     var subscription = FlutterBluePlus.adapterState
         .listen((BluetoothAdapterState state) async {
       if (state == BluetoothAdapterState.on) {
+        print('call');
         FlutterBluePlus.startScan(timeout: const Duration(seconds: 4));
         // 블루투스 스캔 결과값 프린트
         FlutterBluePlus.scanResults.listen((result) async {
@@ -34,7 +39,16 @@ class _MyAppState extends State<MyApp> {
           }
         }, onError: (e) => print(e));
       } else {
-        // await FlutterBluePlus.turnOn();
+        if (Platform.isIOS) {
+          print('ios');
+
+          bluetoothList = [];
+          setState(() {
+            bluetoothOffInIos = true;
+          });
+        } else if (Platform.isAndroid) {
+          await FlutterBluePlus.turnOn();
+        }
       }
     });
   }
@@ -46,12 +60,16 @@ class _MyAppState extends State<MyApp> {
       appBar: AppBar(
         title: const Text(''),
       ),
-      body: ListView(
-        children: [
-          for (int i = 0; bluetoothList.length > i; i++)
-            if (bluetoothList[i].device.advName.isNotEmpty)
-              BluetoothItem.fromMap(bluetoothList[i])
-        ],
+      body: Container(
+        child: bluetoothOffInIos
+            ? const Text('블루투스가 꺼져있습니다.')
+            : ListView(
+                children: [
+                  for (int i = 0; bluetoothList.length > i; i++)
+                    if (bluetoothList[i].device.advName.isNotEmpty)
+                      BluetoothItem.fromMap(bluetoothList[i])
+                ],
+              ),
       ),
       bottomNavigationBar: Container(
         margin: const EdgeInsets.only(bottom: 20),
